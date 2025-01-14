@@ -194,49 +194,6 @@ def checkJumpCrouch(img, results, MID_Y=250, draw=False):
             
         return output_image, posture
 
-def checkHandGestures(img, results, draw=False):
-    height, width, _ = img.shape
-    output_image = img.copy()
-    
-    # Get wrist and shoulder landmarks
-    left_wrist = results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_WRIST]
-    right_wrist = results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_WRIST]
-    left_shoulder = results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER]
-    right_shoulder = results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER]
-    
-    # Convert to pixel coordinates
-    left_wrist_pos = (int(left_wrist.x * width), int(left_wrist.y * height))
-    right_wrist_pos = (int(right_wrist.x * width), int(right_wrist.y * height))
-    left_shoulder_pos = (int(left_shoulder.y * height))
-    right_shoulder_pos = (int(right_shoulder.y * height))
-    
-    gesture = 'Standing'
-    color = (255, 255, 255)
-    
-    # Check for jump (either hand raised above shoulder)
-    if left_wrist.y < left_shoulder.y - 0.1 or right_wrist.y < right_shoulder.y - 0.1:
-        gesture = 'Jumping'
-        color = (0, 255, 0)
-    
-    # Check for crouch (hands close together near waist)
-    elif math.hypot(left_wrist_pos[0] - right_wrist_pos[0], 
-                   left_wrist_pos[1] - right_wrist_pos[1]) < 100:
-        gesture = 'Crouching'
-        color = (0, 0, 255)
-    
-    # Check for left/right movement
-    if left_wrist.x < 0.3 and right_wrist.x < 0.3:
-        gesture = 'Left'
-        color = (255, 0, 0)
-    elif left_wrist.x > 0.7 and right_wrist.x > 0.7:
-        gesture = 'Right'
-        color = (0, 0, 255)
-    
-    if draw:
-        cv2.putText(output_image, f'Gesture: {gesture}', (10, 30), 
-                   cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
-    
-    return output_image, gesture
 
 if __name__ == '__main__':
     
@@ -299,35 +256,27 @@ if __name__ == '__main__':
             
         img = cv2.flip(img, 1)
         h, w, _ = img.shape
-        img, landmarks, results = detectPose(img, pose_video)
-        
+        # img = cv2.resize(img, (1280, 720))
+        img, landmarks ,results = detectPose(img, pose_video)
         if landmarks:
             if game_started:
-                img, gesture = checkHandGestures(img, results, draw=True)
-                
-                # Handle different gestures
-                if gesture == 'Left' and x_pos_index != 0:
+                img, horizontal_position = checkLeftRight(img, results, draw=True)
+                if (horizontal_position=='Left' and x_pos_index!=0) or (horizontal_position=='Center' and x_pos_index==2):
+                    
                     pyautogui.press('left')
-                    x_pos_index -= 1
                     
-                elif gesture == 'Right' and x_pos_index != 2:
+                    x_pos_index -= 1               
+
+                elif (horizontal_position=='Right' and x_pos_index!=2) or (horizontal_position=='Center' and x_pos_index==0):
+                    
                     pyautogui.press('right')
+                    
                     x_pos_index += 1
-                    
-                elif gesture == 'Jumping' and y_pos_index == 1:
-                    pyautogui.press('up')
-                    y_pos_index += 1
-                    
-                elif gesture == 'Crouching' and y_pos_index == 1:
-                    pyautogui.press('down')
-                    y_pos_index -= 1
-                    
-                elif gesture == 'Standing' and y_pos_index != 1:
-                    y_pos_index = 1
                 
             else:
-                cv2.putText(img, 'JOIN BOTH HANDS TO START THE GAME.', (5, h - 10),
-                           cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 3)
+                
+                cv2.putText(img, 'JOIN BOTH HANDS TO START THE GAME.', (5, h - 10), cv2.FONT_HERSHEY_PLAIN,
+                            2, (0, 255, 0), 3)
             
             if checkHandsJoined(img, results)[1] == 'Hands Joined':
 
